@@ -1,0 +1,51 @@
+{
+  "Metadata": {
+    "site_title": "Vantum AI",
+    "site_description": ""
+  },
+  "Mainlocales": {
+    "home": "Home"
+  },
+  "AuthLocales": {
+    "login_title": "Login to your account",
+    "login_description": "Enter your email below to login to your account",
+    "register_title": "Create an account",
+    "register_description": "Enter your information to create an account",
+    "name_label": "Full Name",
+    "name_placeholder": "John Doe",
+    "email_label": "Email",
+    "email_placeholder": "m@example.com",
+    "password_label": "Password",
+    "role_label": "Role",
+    "role_placeholder": "Select your role",
+    "forgot_password": "Forgot your password?",
+    "login_button": "Login",
+    "register_button": "Create account",
+    "or_continue_with": "Or continue with",
+    "login_with_github": "Login with GitHub",
+    "register_with_github": "Register with GitHub",
+    "no_account": "Don't have an account?",
+    "already_have_account": "Already have an account?",
+    "sign_up": "Sign up",
+    "sign_in": "Sign in",
+    "login_success": "Login successful",
+    "signup_success": "Account created successfully",
+    "login_error": "Login error",
+    "logout_error": "Logout error",
+    "unauthorized_error": "Unauthorized access, please login first",
+    "signup_error": "Signup error",
+    "request_reset_password_error": "Request reset password error",
+    "otp_invalid": "Invalid OTP",
+    "reset_password_error": "Reset password error",
+    "user_name": "User Name",
+    "password": "Password",
+    "session_expired": "Session expired, please login again"
+  },
+  "CommonLocales": {
+    "type_required": "{field} is required"
+  },
+  "ServiceErrorLocales": {
+    "NETWORK": "Network error, please check your internet connection and try again",
+    "UNKNOWN": "Unknown error, please try again later"
+  }
+}

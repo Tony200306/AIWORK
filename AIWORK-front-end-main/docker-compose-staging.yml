@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  vantum-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_BASE_URL
+        - NEXT_PUBLIC_DEFAULT_LANGUAGE
+        - NEXT_PUBLIC_FILE_RESOURCE_URL
+        - NEXT_HOST_URL
+        - NEXT_PUBLIC_MIXPANEL_TOKEN
+        - NEXT_PUBLIC_AI_SERVICE_API_KEY
+        - NEXT_PUBLIC_AI_SERVICE_URL
+        - NEXT_PUBLIC_AI_SERVICE_URL
+        - NEXT_PUBLIC_AI_SERVICE_API_KEY
+        - NEXT_PUBLIC_STACK_PROJECT_ID
+        - NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY
+        - STACK_SECRET_SERVER_KEY
+        - DEEPGRAM_API_KEY
+    ports:
+      - "3065:3000"
+    env_file:
+      - .env.staging
+    restart: unless-stopped
+    container_name: vantum-frontend-staging

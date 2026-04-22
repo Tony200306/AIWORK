@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+# pnpm-lock.yaml
+
+# Build output
+dist
+build
+
+# Development files
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Database
+postgres_data
+*.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation
+README.md
+docs
+
+# Misc
+.DS_Store
+*.md

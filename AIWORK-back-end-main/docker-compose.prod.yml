@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vantum-app-prod
+    ports:
+      - '8695:8000'
+    networks:
+      - vantum-network
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+
+networks:
+  vantum-network:
+    external: true
+    name: vantum-network

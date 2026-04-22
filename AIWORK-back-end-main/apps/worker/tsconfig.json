@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../dist/worker",
+    "baseUrl": "../..",
+    "paths": {
+      "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"],
+      "@errors/*": ["src/errors/*"],
+      "@guards/*": ["src/guards/*"],
+      "@decorators/*": ["src/decorators/*"],
+      "@interceptors/*": ["src/interceptors/*"],
+      "@filters/*": ["src/filters/*"],
+      "@pipes/*": ["src/pipes/*"],
+      "@config/*": ["src/config/*"],
+      "src/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*", "../../src/**/*"]
+}

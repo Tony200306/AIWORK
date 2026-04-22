@@ -1,0 +1,51 @@
+{
+  "Metadata": {
+    "site_title": "Vantum AI",
+    "site_description": ""
+  },
+  "Mainlocales": {
+    "home": "首页"
+  },
+  "AuthLocales": {
+    "login_title": "登录您的账户",
+    "login_description": "在下方输入您的电子邮件以登录您的账户",
+    "register_title": "创建账户",
+    "register_description": "输入您的信息以创建账户",
+    "name_label": "全名",
+    "name_placeholder": "张三",
+    "email_label": "电子邮件",
+    "email_placeholder": "m@example.com",
+    "password_label": "密码",
+    "role_label": "角色",
+    "role_placeholder": "选择您的角色",
+    "forgot_password": "忘记密码？",
+    "login_button": "登录",
+    "register_button": "创建账户",
+    "or_continue_with": "或继续使用",
+    "login_with_github": "使用 GitHub 登录",
+    "register_with_github": "使用 GitHub 注册",
+    "no_account": "还没有账户？",
+    "already_have_account": "已有账户？",
+    "sign_up": "注册",
+    "sign_in": "登录",
+    "login_success": "登录成功",
+    "signup_success": "账户创建成功",
+    "login_error": "登录时出错",
+    "logout_error": "登出时出错",
+    "unauthorized_error": "未授权访问，请先登录",
+    "signup_error": "注册时出错",
+    "request_reset_password_error": "请求重置密码时出错",
+    "otp_invalid": "验证码无效",
+    "reset_password_error": "重置密码时出错",
+    "user_name": "用户名",
+    "password": "密码",
+    "session_expired": "会话已过期，请重新登录"
+  },
+  "CommonLocales": {
+    "type_required": "{field} 是必填项"
+  },
+  "ServiceErrorLocales": {
+    "NETWORK": "网络错误，请检查您的网络连接后重试",
+    "UNKNOWN": "未知错误，请稍后重试"
+  }
+}

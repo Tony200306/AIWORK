@@ -1,0 +1,1046 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SeniorityLevel {
+  JUNIOR
+  SENIOR
+  LEAD_MANAGER
+  OTHER
+}
+
+enum Priority {
+  LOWEST
+  LOW
+  MEDIUM
+  HIGH
+  HIGHEST
+  PRIORITY
+}
+
+enum TaskStatus {
+  TODO
+  DOING
+  DONE
+  URGENT
+}
+
+enum TaskType {
+  NEWSPRINT
+  BACKLOG
+  STAGING
+  ACTIVE
+}
+
+enum BlockType {
+  FOCUS
+  SERVICE
+  BREAK
+  MEETING
+  PERSONAL
+}
+
+enum RecurrenceType {
+  NONE
+  WEEKLY
+  CUSTOM
+}
+
+enum BlockStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+}
+
+enum BrainDumpType {
+  TASK_CANDIDATE
+  DOCUMENT
+  VOICE
+}
+
+enum BrainDumpStatus {
+  QUEUED
+  PENDING
+  PROCESSING
+  COMPLETED
+  READING
+  FAILED
+}
+
+enum AssetType {
+  ATTACHMENT
+  VOICE
+}
+
+enum AssetContext {
+  TODO
+}
+
+enum SprintWindowType {
+  TODAY
+  WEEK
+  BI_WEEKLY
+  MONTHLY
+  YEARLY
+  THREEDAYS
+}
+
+enum SprintLane {
+  LOW
+  MEDIUM
+  HIGH
+  PRIORITY
+}
+
+enum TagType {
+  TODO
+}
+
+enum TaskRunStatus {
+  TODO
+}
+
+enum TaskRunStartedFrom {
+  TODO
+}
+
+enum StepRunStatus {
+  TODO
+  DOING
+  DONE
+}
+
+// ============================================================================
+// COMPOSITE SCORING ENUMS
+// ============================================================================
+
+enum GoalTier {
+  T1 // Operator's business goal (weight: 1.0)
+  T2 // Client-specific goals (weight: 0.8)
+  T3 // Additional goals (weight: 0.6)
+}
+
+enum ClientRevenueRange {
+  UNDER_3K // score: 0.30
+  K3_TO_7K // score: 0.55
+  K7_TO_12K // score: 0.80
+  K12_PLUS // score: 1.0
+}
+
+enum ClientRelationshipState {
+  THRIVING // score: 1.0 → auto-maps to disposition: HAPPY
+  STABLE // score: 0.70 → auto-maps to disposition: NEUTRAL
+  UNDER_PRESSURE // score: 0.85 → auto-maps to disposition: ON_EDGE
+  AT_RISK // score: 1.0 → auto-maps to disposition: HIGH_PRESSURE
+}
+
+enum ClientDisposition {
+  HAPPY // multiplier: 1.0
+  NEUTRAL // multiplier: 1.0
+  ON_EDGE // multiplier: 1.15
+  HIGH_PRESSURE // multiplier: 1.3
+  WINDING_DOWN // multiplier: 0.7
+}
+
+enum ValueEnum {
+  CLIENT_TRUST
+  DEEP_WORK
+  FAMILY
+  HEALTH
+  FINANCIAL_INDEPENDENCE
+  STRATEGIC_IMPACT
+  AUTONOMY
+  CRAFT
+}
+
+// ============================================================================
+// UPDATED ENUMS FOR UNIFIED SCHEDULE EVENTS
+// ============================================================================
+
+enum ScheduleEventSource {
+  MANUAL
+  SYNCED
+  BLOCK_TEMPLATE  // NEW: From BlockInstance
+  TASK_SESSION    // NEW: From TaskRun
+  STEP_SESSION    // NEW: From StepRun
+}
+
+enum ScheduleEventProvider {
+  GOOGLE
+  APPLE
+  OUTLOOK
+  INTERNAL  // NEW: For system-generated events
+}
+
+enum ScheduleEventStatus {
+  CONFIRMED
+  TENTATIVE
+  CANCELLED
+}
+
+// Core / Accounts
+
+model User {
+  id       String  @id @default(uuid()) @db.Uuid
+  email    String  @unique
+  password String?
+  name     String
+  role     Role?   @default(USER)
+
+  // OAuth fields
+  provider   String? // "google", "github", etc.
+  providerId String? @map("provider_id") // OAuth provider user ID
+  avatarUrl  String? @map("avatar_url")
+
+  userProfile        UserProfile?
+  tasks              Task[]
+  blockTemplates     BlockTemplate[]
+  blockInstances     BlockInstance[]
+  schedulePreference UserSchedulePreference?
+
+  brainDumps     BrainDump[]
+  assets         Asset[]
+  sprints        Sprint[]
+  tags           Tag[]
+  taskRuns       TaskRun[]
+  scheduleEvents ScheduleEvent[]
+
+  guidanceSessions GuidanceSession[]
+  blockerLinks     BlockerLink[]
+  sprintFeedbacks  SprintFeedback[]
+
+  goals Goal[] @relation("GoalCreator")
+  clients Client[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+}
+
+model UserProfile {
+  id     String    @id @default(uuid()) @db.Uuid
+  dob    DateTime? @db.Date
+  gender String
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobId String @map("job_id") @db.Uuid
+  job   Job    @relation(fields: [jobId], references: [id])
+
+  projects Project[]
+
+  // Composite scoring: top 3 values (ordered by drag-drop priority)
+  valuesStack ValueEnum[] @map("values_stack")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("user_profile")
+}
+
+model Job {
+  id             String         @id @default(uuid()) @db.Uuid
+  title          String
+  seniorityLevel SeniorityLevel @map("seniority_level")
+  jobDescription String?        @map("job_description")
+
+  seniorityOtherLabel String? @map("seniority_other_label")
+
+  userProfiles UserProfile[]
+
+  @@map("job")
+}
+
+model Project {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  roleInProject String?       @map("role_in_project")
+  userProfiles  UserProfile[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("project")
+}
+
+// Goals (Composite Scoring)
+
+model Goal {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  tier               GoalTier
+  rank               Int // drag-drop order (1-5+)
+  title              String    @db.Text
+  description        String?   @db.Text
+  lastCompletionDate DateTime? @map("last_completion_date") @db.Timestamptz(6)
+
+  user  User   @relation("GoalCreator", fields: [userId], references: [id])
+  tasks Task[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId, tier, rank])
+  @@map("goal")
+}
+
+// Brain dumps + Assets
+
+model BrainDump {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String?         @map("user_id") @db.Uuid
+  type        BrainDumpType
+  contextText String?         @map("context_text") @db.Text
+  status      BrainDumpStatus @default(QUEUED)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  attachments    BrainDumpAsset[]
+  convertedTasks BrainDumpTask[]
+
+  @@map("brain_dump")
+}
+
+model Asset {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  type         AssetType
+  storagePath  String?   @map("storage_path") @db.Text
+  url          String?   @db.Text
+  title        String?   @db.Text
+  metadataJson Json?     @map("metadata_json") @db.JsonB
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  brainDumpLinks        BrainDumpAsset[]
+  taskAssets            TaskAsset[]
+  stepAssets            StepAsset[]
+  guidanceSessionAssets GuidanceSessionAsset[]
+
+  @@map("asset")
+}
+
+model BrainDumpAsset {
+  brainDumpId String       @map("brain_dump_id") @db.Uuid
+  assetId     String       @map("asset_id") @db.Uuid
+  context     AssetContext
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  brainDump BrainDump @relation(fields: [brainDumpId], references: [id], onDelete: Cascade)
+  asset     Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@id([brainDumpId, assetId])
+  @@map("brain_dump_asset")
+}
+
+// BrainDump to Task join table (1:N - one brain dump can generate many tasks)
+
+model BrainDumpTask {
+  brainDumpId String   @map("brain_dump_id") @db.Uuid
+  taskId      String   @map("task_id") @db.Uuid
+  orderIndex  Int?     @map("order_index")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  brainDump BrainDump @relation(fields: [brainDumpId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([brainDumpId, taskId])
+  @@map("brain_dump_task")
+}
+
+// Tags
+
+model Tag {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  name           String   @db.Text
+  type           TagType
+  color          String?  @db.Text
+  parentId       String?  @map("parent_id") @db.Uuid
+  priorityWeight Float?   @map("priority_weight")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parent   Tag?  @relation("TagHierarchy", fields: [parentId], references: [id])
+  children Tag[] @relation("TagHierarchy")
+
+  taskTags        TaskTag[]
+  // sprintGoalLinks SprintGoalPriority[]
+  tasks           Task[]
+
+  @@map("tag")
+}
+
+// Clients / Tasks / Steps
+
+model Client {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Composite scoring: client weight dimension
+  revenueRange      ClientRevenueRange?      @map("revenue_range")
+  relationshipState ClientRelationshipState?  @map("relationship_state")
+  disposition       ClientDisposition?        // Auto-mapped from relationshipState + editable
+  clientWeight      Float?                    @map("client_weight") // Cached computed score
+
+  tasks Task[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("client")
+}
+
+model Task {
+  id          String @id @default(uuid()) @db.Uuid
+  title       String @db.Text
+  description String @db.Text
+
+  expectedTimeHours Float? @map("expected_time_hours")
+  extraProp         Json?  @map("extra_prop")
+  scope             Json?  @map("scope") @db.JsonB
+  status   TaskStatus @default(TODO)
+  taskType TaskType   @default(STAGING) @map("task_type")
+  priority Priority   @default(MEDIUM)
+  rank     Int        @default(0)
+
+  dueAt DateTime? @map("due_at") @db.Timestamptz(6)
+
+  clientId String? @map("client_id") @db.Uuid
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  goalId String? @map("goal_id") @db.Uuid
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Optional "primary tag" (legacy/simple)
+  tagId String? @map("tag_id") @db.Uuid
+  tag   Tag?    @relation(fields: [tagId], references: [id], onDelete: SetNull)
+
+  // Active plan version
+  activePlanVersionId String?          @map("active_plan_version_id") @db.Uuid
+  activePlanVersion   TaskPlanVersion? @relation("TaskActivePlanVersion", fields: [activePlanVersionId], references: [id])
+
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  steps        Step[]
+  planVersions TaskPlanVersion[]
+
+  sprintItems      SprintItem[]
+  taskTags         TaskTag[]
+  taskRuns         TaskRun[]
+  completionLogs   TaskCompletionLog[]
+  sourceBrainDumps BrainDumpTask[]
+
+  blockTemplates BlockTemplate[]
+  taskAssets     TaskAsset[]
+
+  planChangeProposals PlanChangeProposal[]
+
+  blockerLinksAsBlocker     BlockerLink[] @relation("BlockerTask")
+  blockerLinksAsBlockedTask BlockerLink[] @relation("BlockedTask")
+
+  // Composite scoring fields (stored per-dimension + total)
+  goalAlignment   Float?  @map("goal_alignment")    // 0-1.0
+  clientWeightVal Float?  @map("client_weight_val")  // 0-1.0
+  timeSensitivity Float?  @map("time_sensitivity")   // 0-1.0
+  valuesAlignment Float?  @map("values_alignment")   // -0.3 to 1.0
+  compositeScore  Float?  @map("composite_score")    // 0-100
+  pinned          Boolean @default(false) @map("pinned")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([goalId])
+  @@index([tagId])
+  @@map("task")
+}
+
+model TaskPlanVersion {
+  id                  String   @id @default(uuid()) @db.Uuid
+  taskId              String   @map("task_id") @db.Uuid
+  createdBy           String   @map("created_by") @db.Text
+  source              String   @db.Text
+  scopeText           String   @map("scope_text") @db.Text
+  successCriteriaText String   @map("success_criteria_text") @db.Text
+  commonIssuesText    String   @map("common_issues_text") @db.Text
+  researchSummaryText String   @map("research_summary_text") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  steps             Step[]
+  researchArtifacts ResearchArtifact[]
+
+  activeForTasks Task[] @relation("TaskActivePlanVersion")
+
+  planChangesFrom PlanChangeProposal[] @relation("PlanChangeFrom")
+  planChangesTo   PlanChangeProposal[] @relation("PlanChangeTo")
+
+  guidanceSessionResults GuidanceSession[] @relation("GuidanceSessionResultPlan")
+
+  @@map("task_plan_version")
+}
+
+model Step {
+  id             String  @id @default(uuid()) @db.Uuid
+  taskId         String  @map("task_id") @db.Uuid
+  planVersionId  String? @map("plan_version_id") @db.Uuid
+  orderIndex     Int?    @map("order_index")
+  title          String  @db.Text
+  description    String? @db.Text
+  sysEstMinutes  Float?  @map("sys_est_minutes")
+  userEstMinutes Float?  @map("user_est_minutes")
+  isDone         Boolean @default(false) @map("is_done")
+
+  expectedTimeHours Float? @map("expected_time_hours")
+  difficulty        Int?
+  extraProp         Json?  @map("extra_prop")
+  priority Priority   @default(MEDIUM)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  planVersion TaskPlanVersion? @relation(fields: [planVersionId], references: [id])
+
+  stepRuns         StepRun[]
+  activeInTaskRuns TaskRun[] @relation("ActiveStep")
+  stepAssets       StepAsset[]
+
+  blockerLinksAsBlockedStep BlockerLink[] @relation("BlockedStep")
+
+  @@index([taskId])
+  @@map("step")
+}
+
+model ResearchArtifact {
+  id                String   @id @default(uuid()) @db.Uuid
+  taskPlanVersionId String   @map("task_plan_version_id") @db.Uuid
+  type              String   @db.Text
+  title             String   @db.Text
+  url               String   @db.Text
+  content           String   @db.Text
+  metadataJson      Json     @map("metadata_json") @db.JsonB
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  taskPlanVersion TaskPlanVersion @relation(fields: [taskPlanVersionId], references: [id])
+
+  @@map("research_artifact")
+}
+
+// Sprint planning
+
+model Sprint {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @map("user_id") @db.Uuid
+  title           String?          @db.Text
+  windowType      SprintWindowType @map("window_type")
+  startDate       DateTime         @map("start_date") @db.Date
+  endDate         DateTime         @map("end_date") @db.Date
+  capacityMinutes Float?             @map("capacity_minutes")
+  isActive        Boolean          @default(false) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items          SprintItem[]
+  // goalPriorities SprintGoalPriority[]
+  taskRuns       TaskRun[]
+  feedbacks      SprintFeedback[]
+
+  @@index([userId])
+  @@map("sprint")
+}
+
+model SprintItem {
+  id             String     @id @default(uuid()) @db.Uuid
+  sprintId       String     @map("sprint_id") @db.Uuid
+  taskId         String     @map("task_id") @db.Uuid
+  lane           SprintLane
+  rank           Int?
+  plannedMinutes Float?       @map("planned_minutes")
+  isBuffer       Boolean    @default(false) @map("is_buffer")
+  isStarred      Boolean    @default(false) @map("is_starred")
+  startNext      Boolean    @default(false) @map("start_next")
+  addedMidSprint Boolean    @default(false) @map("added_mid_sprint")
+  completedAt    DateTime?  @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([sprintId])
+  @@index([taskId])
+  @@map("sprint_item")
+}
+
+model TaskTag {
+  taskId String @map("task_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  contributionWeight Float?   @map("contribution_weight")
+  isPrimary          Boolean  @default(false) @map("is_primary")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@map("task_tag")
+}
+
+// model SprintGoalPriority {
+//   sprintId       String   @map("sprint_id") @db.Uuid
+//   goalTagId      String   @map("goal_tag_id") @db.Uuid
+//   priorityWeight Float?   @map("priority_weight")
+//   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+//   sprint  Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+//   goalTag Tag    @relation(fields: [goalTagId], references: [id], onDelete: Cascade)
+
+//   @@id([sprintId, goalTagId])
+//   @@map("sprint_goal_priority")
+// }
+
+// Execution tracking
+
+model TaskRun {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  taskId             String             @map("task_id") @db.Uuid
+  sprintId           String?            @map("sprint_id") @db.Uuid
+  startedAt          DateTime?          @map("started_at") @db.Timestamptz(6)
+  endedAt            DateTime?          @map("ended_at") @db.Timestamptz(6)
+  status             TaskRunStatus
+  pausedTotalSeconds Int?               @map("paused_total_seconds")
+  activeStepId       String?            @map("active_step_id") @db.Uuid
+  startedFrom        TaskRunStartedFrom @map("started_from")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task   Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  sprint Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  activeStep Step? @relation("ActiveStep", fields: [activeStepId], references: [id], onDelete: SetNull)
+
+  stepRuns      StepRun[]
+  completionLog TaskCompletionLog?
+
+  // NEW: Link to unified ScheduleEvent
+  // scheduleEvent ScheduleEvent?
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([sprintId])
+  @@map("task_run")
+}
+
+model StepRun {
+  id          String        @id @default(uuid()) @db.Uuid
+  taskRunId   String        @map("task_run_id") @db.Uuid
+  stepId      String        @map("step_id") @db.Uuid
+  status      StepRunStatus
+  scheduledAt DateTime?     @map("scheduled_at") @db.Timestamptz(6)
+  startedAt   DateTime?     @map("started_at") @db.Timestamptz(6)
+  endedAt     DateTime?     @map("ended_at") @db.Timestamptz(6)
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  taskRun TaskRun @relation(fields: [taskRunId], references: [id], onDelete: Cascade)
+  step    Step    @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  // NEW: Link to unified ScheduleEvent
+  scheduleEvent ScheduleEvent?
+
+  @@index([taskRunId])
+  @@index([stepId])
+  @@map("step_run")
+}
+
+model TaskCompletionLog {
+  id                     String   @id @default(uuid()) @db.Uuid
+  taskRunId              String   @unique @map("task_run_id") @db.Uuid
+  taskId                 String   @map("task_id") @db.Uuid
+  plannedMinutesSnapshot Float?     @map("planned_minutes_snapshot")
+  actualMinutes          Int?     @map("actual_minutes")
+  difficultyRating       Int?     @map("difficulty_rating")
+  shipSummary            String?  @map("ship_summary") @db.Text
+  slowdownNotes          String?  @map("slowdown_notes") @db.Text
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  taskRun TaskRun @relation(fields: [taskRunId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_completion_log")
+}
+
+// Plan change proposals
+
+model PlanChangeProposal {
+  id                  String    @id @default(uuid()) @db.Uuid
+  taskId              String    @map("task_id") @db.Uuid
+  fromPlanVersionId   String    @map("from_plan_version_id") @db.Uuid
+  toPlanVersionId     String    @map("to_plan_version_id") @db.Uuid
+  deltaPlannedMinutes Float       @map("delta_planned_minutes")
+  deltaStepsCount     Int       @map("delta_steps_count")
+  reason              String    @db.Text
+  status              String    @db.Text
+  decidedAt           DateTime? @map("decided_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  fromPlanVersion TaskPlanVersion @relation("PlanChangeFrom", fields: [fromPlanVersionId], references: [id])
+  toPlanVersion   TaskPlanVersion @relation("PlanChangeTo", fields: [toPlanVersionId], references: [id])
+
+  @@map("plan_change_proposal")
+}
+
+// Blocker links
+
+model BlockerLink {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  blockerTaskId String    @map("blocker_task_id") @db.Uuid
+  blockedTaskId String?   @map("blocked_task_id") @db.Uuid
+  blockedStepId String?   @map("blocked_step_id") @db.Uuid
+  status        String    @db.Text
+  severity      Int
+  confidence    Float
+  discoveredAt  DateTime  @map("discovered_at") @db.Timestamptz(6)
+  clearedAt     DateTime? @map("cleared_at") @db.Timestamptz(6)
+  notes         String?   @db.Text
+
+  user User @relation(fields: [userId], references: [id])
+
+  blockerTask Task  @relation("BlockerTask", fields: [blockerTaskId], references: [id])
+  blockedTask Task? @relation("BlockedTask", fields: [blockedTaskId], references: [id])
+  blockedStep Step? @relation("BlockedStep", fields: [blockedStepId], references: [id])
+
+  // Goal-related (commented out for now)
+  // blockedGoalId String? @map("blocked_goal_id") @db.Uuid
+  // blockedGoal   Goal?   @relation("BlockedGoal", fields: [blockedGoalId], references: [id])
+
+  @@map("blocker_link")
+}
+
+// Guidance sessions
+
+model GuidanceSession {
+  id                   String    @id @default(uuid()) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  type                 String    @db.Text
+  timerSeconds         Float       @map("timer_seconds")
+  startedAt            DateTime  @map("started_at") @db.Timestamptz(6)
+  endedAt              DateTime? @map("ended_at") @db.Timestamptz(6)
+  status               String    @db.Text
+  inputDumpText        String?   @map("input_dump_text") @db.Text
+  resultPlanVersionId  String?   @map("result_plan_version_id") @db.Uuid
+  capacityDeltaMinutes Float       @map("capacity_delta_minutes")
+  decision             String    @db.Text
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  resultPlanVersion TaskPlanVersion? @relation("GuidanceSessionResultPlan", fields: [resultPlanVersionId], references: [id])
+
+  guidanceSessionAssets GuidanceSessionAsset[]
+
+  @@map("guidance_session")
+}
+
+// Asset relations
+
+model TaskAsset {
+  taskId    String   @map("task_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  context   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task  Task  @relation(fields: [taskId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@id([taskId, assetId, context])
+  @@map("task_asset")
+}
+
+model StepAsset {
+  stepId    String   @map("step_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  context   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  step  Step  @relation(fields: [stepId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@id([stepId, assetId, context])
+  @@map("step_asset")
+}
+
+model GuidanceSessionAsset {
+  guidanceSessionId String   @map("guidance_session_id") @db.Uuid
+  assetId           String   @map("asset_id") @db.Uuid
+  context           String   @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  guidanceSession GuidanceSession @relation(fields: [guidanceSessionId], references: [id])
+  asset           Asset           @relation(fields: [assetId], references: [id])
+
+  @@id([guidanceSessionId, assetId, context])
+  @@map("guidance_session_asset")
+}
+
+// ============================================================================
+// UNIFIED SCHEDULE EVENTS (with internal source references)
+// ============================================================================
+
+model ScheduleEvent {
+  id                    String                @id @default(uuid()) @db.Uuid
+  userId                String                @map("user_id") @db.Uuid
+  source                ScheduleEventSource
+  externalProvider      ScheduleEventProvider @map("external_provider")
+  externalEventId       String?               @map("external_event_id") @db.Text
+  calendarId            String?               @map("calendar_id") @db.Text
+  title                 String?               @db.Text
+  description           String?               @db.Text
+  startAt               DateTime              @map("start_at") @db.Timestamptz(6)
+  endAt                 DateTime              @map("end_at") @db.Timestamptz(6)
+  timezone              String?               @db.Text
+  isAllDay              Boolean               @default(false) @map("is_all_day")
+  status                ScheduleEventStatus
+  lastProviderUpdatedAt DateTime?             @map("last_provider_updated_at") @db.Timestamptz(6)
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  energy ScheduleEventEnergy?
+
+  // ============================================================================
+  // NEW: Internal source references (nullable - only one should be set)
+  // ============================================================================
+
+  // Link to BlockInstance (when source = BLOCK_TEMPLATE)
+  blockInstanceId String?        @unique @map("block_instance_id") @db.Uuid
+  blockInstance   BlockInstance? @relation(fields: [blockInstanceId], references: [id], onDelete: Cascade)
+
+  // // Link to TaskRun (when source = TASK_SESSION)
+  // taskRunId String?  @unique @map("task_run_id") @db.Uuid
+  // taskRun   TaskRun? @relation(fields: [taskRunId], references: [id], onDelete: Cascade)
+
+  // Link to StepRun (when source = STEP_SESSION)
+  stepRunId String?  @unique @map("step_run_id") @db.Uuid
+  stepRun   StepRun? @relation(fields: [stepRunId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([source])
+  @@index([startAt, endAt])
+  @@map("schedule_event")
+}
+
+model EnergyActivityCatalogue {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String   @db.Text
+  category            String   @db.Text
+  defaultEnergyPoints Int      @map("default_energy_points")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  scheduleEventEnergies ScheduleEventEnergy[]
+
+  @@map("energy_activity_catalogue")
+}
+
+model ScheduleEventEnergy {
+  scheduleEventId     String @id @map("schedule_event_id") @db.Uuid
+  activityCatalogueId String @map("activity_catalogue_id") @db.Uuid
+  energyPoints        Int    @map("energy_points")
+  constraintType      String @map("constraint_type") @db.Text
+  energyMode          String @map("energy_mode") @db.Text
+  confidence          Float
+
+  scheduleEvent     ScheduleEvent           @relation(fields: [scheduleEventId], references: [id])
+  activityCatalogue EnergyActivityCatalogue @relation(fields: [activityCatalogueId], references: [id])
+
+  @@map("schedule_event_energy")
+}
+
+// Scheduling / Blocks
+
+model BlockTemplate {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  type        BlockType @default(FOCUS)
+  startTime   String    @map("start_time")
+  endTime     String    @map("end_time")
+  timezone    String?
+
+  daysOfWeek        Int[]          @map("days_of_week")
+  recurrenceType    RecurrenceType @default(WEEKLY) @map("recurrence_type")
+  recurrencePattern Json?          @map("recurrence_pattern")
+
+  defaultTaskId String? @map("default_task_id") @db.Uuid
+  defaultTask   Task?   @relation(fields: [defaultTaskId], references: [id], onDelete: SetNull)
+
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  blockInstances BlockInstance[]
+
+  @@index([userId])
+  @@map("block_template")
+}
+
+model BlockInstance {
+  id         String         @id @default(uuid()) @db.Uuid
+  templateId String?        @map("template_id") @db.Uuid
+  template   BlockTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date    DateTime @db.Date
+  startAt DateTime @map("start_at") @db.Timestamptz(6)
+  endAt   DateTime @map("end_at") @db.Timestamptz(6)
+
+  durationMinutes Int         @map("duration_minutes")
+  status          BlockStatus @default(SCHEDULED)
+
+  title       String?
+  description String?
+  color       String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // NEW: Link to unified ScheduleEvent
+  scheduleEvent ScheduleEvent?
+
+  @@index([userId, date])
+  @@map("block_instance")
+}
+
+model UserSchedulePreference {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  weeklyCapacityMinutes Int? @map("weekly_capacity_minutes")
+  dailyCapacityMinutes  Int? @map("daily_capacity_minutes")
+  defaultFocusMinutes   Int? @default(60) @map("default_focus_minutes")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("user_schedule_preference")
+}
+
+// Newsletter subscriptions
+
+model NewsletterSubscription {
+  id    String @id @default(uuid()) @db.Uuid
+  name  String @db.Text
+  email String @unique @db.Text
+  tasks String[] @db.Text
+
+  beehiivSubscriptionId String? @map("beehiiv_subscription_id") @db.Text
+  subscribedAt          DateTime @default(now()) @map("subscribed_at") @db.Timestamptz(6)
+  unsubscribedAt        DateTime? @map("unsubscribed_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("newsletter_subscription")
+}
+
+model QuestionCard {
+  id         String       @id @default(uuid()) @db.Uuid
+  slug       String       @unique
+  orderIndex Int          @map("order_index")
+
+  title    String  // vd: "Capacity Reality"
+  subtitle String? // vd: "Logical", "Pain Routing"
+  question String  // vd: "What does a realistic week look like...?"
+
+  type QuestionType // ENUM: SINGLE, MULTI, SLIDER, TEXT, NUMBER_INPUT
+
+  options Json? @db.JsonB
+  config  Json? @db.JsonB
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("question_card")
+}
+
+enum QuestionType {
+  SINGLE_SELECT
+  MULTI_SELECT
+  SLIDER
+  TEXT_INPUT
+  NUMBER_INPUT
+}
+
+enum SprintDifficulty {
+  EASY
+  NORMAL
+  HARD
+}
+
+// Sprint Feedback
+
+model SprintFeedback {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  sprintId   String?          @map("sprint_id") @db.Uuid
+  difficulty SprintDifficulty
+  slowdown   String?          @db.Text
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sprint Sprint? @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([sprintId])
+  @@map("sprint_feedback")
+}

@@ -1,0 +1,17 @@
+models:
+  scoring_evaluator:
+    model_type: "langchain"
+    primary:
+      model: "google/gemini-2.5-flash:nitro"
+      temperature: 0.2
+    fallback:
+      - model: "gpt-4.1"
+        temperature: 0.2
+  suggest_links:
+    model_type: "langchain"
+    primary:
+      model: "google/gemini-2.5-flash:nitro"
+      temperature: 0.2
+    fallback:
+      - model: "gpt-4.1"
+        temperature: 0.2

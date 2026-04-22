@@ -1,0 +1,46 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vantum-app-dev
+    ports:
+      - '8694:8000'
+    networks:
+      - vantum-network
+    environment:
+      - PORT=8000
+      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+      # RabbitMQ - use internal Docker network names
+      - RABBITMQ_ENABLED=${RABBITMQ_ENABLED:-true}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:akZ6FJpcedEMgfMn@vantum-rabbitmq:5672}
+      # Redis - use internal Docker network names
+      - REDIS_ENABLED=${REDIS_ENABLED:-true}
+      - REDIS_HOST=${REDIS_HOST:-vantum-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TTL=${REDIS_TTL}
+      # Storage
+      - STORAGE_ENABLED=${STORAGE_ENABLED:-true}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET}
+      - STORAGE_REGION=${STORAGE_REGION}
+      - STORAGE_USE_SSL=${STORAGE_USE_SSL}
+      - STORAGE_PORT=${STORAGE_PORT}
+      - ONBOARDING_API_URL=${ONBOARDING_API_URL}
+      - ONBOARDING_API_KEY=${ONBOARDING_API_KEY}
+      - ONBOARDING_API_TIMEOUT=${ONBOARDING_API_TIMEOUT}
+      # Beehiiv Newsletter
+      - BEEHIIV_ENABLED=${BEEHIIV_ENABLED:-false}
+      - BEEHIIV_API_KEY=${BEEHIIV_API_KEY}
+      - BEEHIIV_PUBLICATION_ID=${BEEHIIV_PUBLICATION_ID}
+      - BEEHIIV_BASE_URL=${BEEHIIV_BASE_URL:-https://api.beehiiv.com/v2}
+    # restart: unless-stopped
+
+networks:
+  vantum-network:
+    external: true
+    name: vantum-network

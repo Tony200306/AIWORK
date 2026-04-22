@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vantum-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: VmpRMqLEOGSrT4c632aCJ4pT
+      POSTGRES_DB: vantum_db
+    ports:
+      - '35436:5432'
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - vantum-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: vantum-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: akZ6FJpcedEMgfMn
+    ports:
+      - '35671:5672'   # AMQP port
+      - '35670:15672' # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - vantum-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: vantum-redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-RedisPass123!}
+    ports:
+      - '36372:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - vantum-network
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-RedisPass123!}
+    healthcheck:
+      test: ['CMD', 'sh', '-c', 'redis-cli -a "${REDIS_PASSWORD:-RedisPass123!}" ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z-cpuv1
+    container_name: vantum-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-JSWrzRWwiraprS0u}
+    ports:
+      - '9000:9000'   # API port
+      - '9001:9001'   # Console port
+    volumes:
+      - minio_data:/data
+    networks:
+      - vantum-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  # postgres_data:  # Now using bind mount to ./postgres_data
+  rabbitmq_data:
+  redis_data:
+  minio_data:
+
+networks:
+  vantum-network:
+    external: true
+    name: vantum-network

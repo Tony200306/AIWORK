@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vantum-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: VmpRMqLEOGSrT4c632aCJ4pT
+      POSTGRES_DB: vantum_db
+    ports:
+      - '35436:5432'
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - vantum-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: vantum-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - '35671:5672'   # AMQP port
+      - '35670:15672' # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - vantum-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: vantum-redis
+    ports:
+      - '36372:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - vantum-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  minio:
+    image: minio/minio:RELEASE.2025-03-12T18-04-18Z-cpuv1
+    container_name: vantum-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - '9000:9000'  # API port
+      - '9001:9001'  # Console port
+    volumes:
+      - minio_data:/data
+    networks:
+      - vantum-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vantum-app
+    ports:
+      - '8000:8000'
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:VmpRMqLEOGSrT4c632aCJ4pT@217.216.111.217:35436/vantum_db_dev
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - STORAGE_ENDPOINT=minio
+      - STORAGE_ACCESS_KEY=minioadmin
+      - STORAGE_SECRET_KEY=minioadmin
+      - STORAGE_BUCKET=vantum-files
+      - STORAGE_REGION=us-east-1
+      - STORAGE_USE_SSL=false
+      - STORAGE_PORT=9000
+    networks:
+      - vantum-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # postgres_data:  # Now using bind mount to ./postgres_data
+  rabbitmq_data:
+  redis_data:
+  minio_data:
+
+networks:
+  vantum-network:
+    driver: bridge

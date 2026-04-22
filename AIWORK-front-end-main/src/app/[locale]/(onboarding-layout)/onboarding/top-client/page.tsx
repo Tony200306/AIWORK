@@ -1,0 +1,65 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useOnboardingContext } from "@/hooks/context/OnboardingProvider";
+import { useStepTracking } from "@/hooks/useStepTracking";
+
+const QUESTION = "Who\u2019s your most important client right now?";
+const SUBTITLE = "Start with one. You can add the rest later - we just need one to get scoring working.";
+const PLACEHOLDER = "e.g. Acme Corp";
+
+export default function TopClientPage() {
+  const [textValue, setTextValue] = useState("");
+  const slug = "top-client";
+  const { setHandleNext, setCurrentQuestion, setCurrentAnswer, trackStepCompleted } = useOnboardingContext();
+  const { trackLandingViewed } = useStepTracking();
+
+  const stateRef = useRef({ textValue, slug, trackStepCompleted });
+
+  useEffect(() => {
+    stateRef.current = { textValue, slug, trackStepCompleted };
+  }, [textValue, slug, trackStepCompleted]);
+
+  useEffect(() => {
+    trackLandingViewed({ landing_variant: slug, message_type: "diagnostic" });
+  }, [slug, trackLandingViewed]);
+
+  useEffect(() => {
+    setCurrentQuestion(QUESTION);
+    return () => setCurrentQuestion("");
+  }, [setCurrentQuestion]);
+
+  useEffect(() => {
+    setCurrentAnswer(textValue);
+  }, [textValue, setCurrentAnswer]);
+
+  useEffect(() => {
+    const handler = async () => {
+      const current = stateRef.current;
+      current.trackStepCompleted(current.slug, 7, current.textValue);
+    };
+    setHandleNext(() => handler);
+    return () => setHandleNext(null);
+  }, [setHandleNext]);
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 mb-8 md:mb-18">
+      <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+        {QUESTION}
+      </h1>
+      <p className="text-sm sm:text-base text-secondary-foreground mb-10 sm:mb-16">
+        {SUBTITLE}
+      </p>
+
+      <div>
+        <textarea
+          value={textValue}
+          onChange={(e) => setTextValue(e.target.value)}
+          placeholder={PLACEHOLDER}
+          rows={4}
+          className="w-full bg-card border-2 border-border rounded-2xl p-6 text-base resize-none focus:outline-none focus:border-primary transition-colors placeholder:text-muted-foreground/50"
+        />
+      </div>
+    </div>
+  );
+}
